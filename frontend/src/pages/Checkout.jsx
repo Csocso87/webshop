@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { orders } from '../services/api';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 
 const Checkout = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { clearCart } = useCart();
   const [shipping, setShipping] = useState({
     name: '',
@@ -16,6 +18,18 @@ const Checkout = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  if (user && user.is_admin) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+
+        <p className="text-gray-600">Ez az oldal admin felhasználók számára nem elérhető.</p>
+        <Link to="/" className="inline-block mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+          Vissza a főoldalra
+        </Link>
+      </div>
+    );
+  }
 
   const handleChange = (e) => {
     setShipping({ ...shipping, [e.target.name]: e.target.value });
