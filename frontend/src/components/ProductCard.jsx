@@ -6,7 +6,7 @@ const ProductCard = ({ product }) => {
   return (
     <Link to={`/product/${product.id}`} className="block">
       <div className="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:bg-gray-50 hover:opacity-90 transform hover:-translate-y-1 cursor-pointer group">
-        <div className="flex justify-center items-center bg-white">
+        <div className="flex justify-center items-center bg-gray-100 py-2">
           <img 
             src={product.image_url || 'https://via.placeholder.com/300'} 
             alt={product.name} 
