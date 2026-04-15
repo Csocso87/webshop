@@ -1,7 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Footer = () => {
+  const { user } = useAuth();
+
   return (
     <footer className="bg-gray-800 text-white py-6 mt-8">
       <div className="container mx-auto px-4 text-center">
@@ -12,8 +15,12 @@ const Footer = () => {
           <Link to="/" className="hover:text-white transition">Főoldal</Link>
           <span>|</span>
           <Link to="/profile" className="hover:text-white transition">Profil</Link>
-          <span>|</span>
-          <Link to="/cart" className="hover:text-white transition">Kosár</Link>
+          {(!user || !user.is_admin) && (
+            <>
+              <span>|</span>
+              <Link to="/cart" className="hover:text-white transition">Kosár</Link>
+            </>
+          )}
         </div>
       </div>
     </footer>
