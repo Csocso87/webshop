@@ -24,8 +24,7 @@ const AdminOrders = () => {
         try {
           const res = await orders.adminGetOrderDetails(orderId);
           setDetails(prev => ({ ...prev, [orderId]: res.data }));
-        } catch (err) {
-          console.error('Hiba a részletek betöltésekor', err);
+        } catch {
           setDetails(prev => ({ ...prev, [orderId]: { items: [] } }));
         }
       }
@@ -34,27 +33,20 @@ const AdminOrders = () => {
     setExpandedIds(newSet);
   };
 
-  // Fizetési mód formázása
-  const formatPaymentMethod = (method) => {
-    switch (method) {
-      case 'cash_on_delivery':
-        return 'Utánvét';
-      case 'credit_card':
-        return 'Bankkártya';
-      case 'paypal':
-        return 'PayPal';
-      default:
-        return method || '-';
-    }
+  const getOrderItems = (orderId) => details[orderId]?.items || [];
+
+  const statusConfig = {
+    pending: { label: 'Függőben', bg: 'bg-yellow-200', text: 'text-yellow-800' },
+    processing: { label: 'Feldolgozás', bg: 'bg-blue-200', text: 'text-blue-800' },
+    shipped: { label: 'Szállítva', bg: 'bg-purple-200', text: 'text-purple-800' },
+    delivered: { label: 'Kézbesítve', bg: 'bg-green-200', text: 'text-green-800' },
+    cancelled: { label: 'Törölve', bg: 'bg-red-200', text: 'text-red-800' }
   };
 
-  // Biztonságos segédfüggvény a tételek lekéréséhez
-  const getOrderItems = (orderId) => {
-    const orderDetails = details[orderId];
-    if (orderDetails && Array.isArray(orderDetails.items)) {
-      return orderDetails.items;
-    }
-    return [];
+  const getStatusBadge = (status) => {
+    const config = statusConfig[status];
+    if (!config) return <span>{status}</span>;
+    return <span className={`px-2 py-1 rounded-full text-xs font-semibold ${config.bg} ${config.text}`}>{config.label}</span>;
   };
 
   return (
@@ -82,21 +74,7 @@ const AdminOrders = () => {
                     <td className="px-6 py-4">{order.user_name} ({order.user_email})</td>
                     <td className="px-6 py-4">{new Date(order.order_date).toLocaleDateString()}</td>
                     <td className="px-6 py-4">{formatPrice(order.total_amount)}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold
-                        ${order.status === 'pending' ? 'bg-yellow-200 text-yellow-800' : ''}
-                        ${order.status === 'processing' ? 'bg-blue-200 text-blue-800' : ''}
-                        ${order.status === 'shipped' ? 'bg-purple-200 text-purple-800' : ''}
-                        ${order.status === 'delivered' ? 'bg-green-200 text-green-800' : ''}
-                        ${order.status === 'cancelled' ? 'bg-red-200 text-red-800' : ''}
-                      `}>
-                        {order.status === 'pending' ? 'Függőben' : ''}
-                        {order.status === 'processing' ? 'Feldolgozás' : ''}
-                        {order.status === 'shipped' ? 'Szállítva' : ''}
-                        {order.status === 'delivered' ? 'Kézbesítve' : ''}
-                        {order.status === 'cancelled' ? 'Törölve' : ''}
-                      </span>
-                    </td>
+                    <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
                     <td className="px-6 py-4">
                       <select 
                         value={order.status} 
@@ -111,23 +89,20 @@ const AdminOrders = () => {
                       </select>
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => toggleDetails(order.id)}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
+                      <button onClick={() => toggleDetails(order.id)} className="text-blue-600 hover:text-blue-800">
                         {expandedIds.has(order.id) ? '▲' : '▼'}
                       </button>
                     </td>
                   </tr>
                   {expandedIds.has(order.id) && (
-                    <tr>
-                      <td colSpan="7" className="px-6 py-4 bg-gray-50">
+                    <tr className="bg-gray-50">
+                      <td colSpan="7" className="px-6 py-4">
                         <div className="space-y-4">
                           <div>
                             <h4 className="font-semibold mb-2">Szállítási adatok</h4>
                             <p><strong>Név:</strong> {details[order.id]?.shipping_name || order.shipping_name || '-'}</p>
                             <p><strong>Cím:</strong> {details[order.id]?.shipping_address || order.shipping_address || '-'}, {details[order.id]?.shipping_city || order.shipping_city || '-'}, {details[order.id]?.shipping_zip || order.shipping_zip || '-'}, {details[order.id]?.shipping_country || order.shipping_country || '-'}</p>
-                            <p><strong>Fizetési mód:</strong> {formatPaymentMethod(details[order.id]?.payment_method || order.payment_method)}</p>
+                            <p><strong>Fizetési mód:</strong> {details[order.id]?.payment_method === 'cash_on_delivery' ? 'Utánvét' : (details[order.id]?.payment_method || order.payment_method || '-')}</p>
                           </div>
                           <div>
                             <h4 className="font-semibold mb-2">Termékek</h4>
