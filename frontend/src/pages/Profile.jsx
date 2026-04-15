@@ -43,7 +43,22 @@ const Profile = () => {
                       <td className="px-6 py-4">{order.id}</td>
                       <td className="px-6 py-4">{new Date(order.order_date).toLocaleDateString()}</td>
                       <td className="px-6 py-4">{formatPrice(order.total_amount)}</td>
-                      <td className="px-6 py-4">{order.status}</td>
+                      
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold
+                        ${order.status === 'pending' ? 'bg-yellow-200 text-yellow-800' : ''}
+                        ${order.status === 'processing' ? 'bg-blue-200 text-blue-800' : ''}
+                        ${order.status === 'shipped' ? 'bg-purple-200 text-purple-800' : ''}
+                        ${order.status === 'delivered' ? 'bg-green-200 text-green-800' : ''}
+                        ${order.status === 'cancelled' ? 'bg-red-200 text-red-800' : ''}
+                      `}>
+                        {order.status === 'pending' ? 'Függőben' : ''}
+                        {order.status === 'processing' ? 'Feldolgozás' : ''}
+                        {order.status === 'shipped' ? 'Szállítva' : ''}
+                        {order.status === 'delivered' ? 'Kézbesítve' : ''}
+                        {order.status === 'cancelled' ? 'Törölve' : ''}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
