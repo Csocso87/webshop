@@ -90,7 +90,11 @@ const AdminOrders = () => {
                         ${order.status === 'delivered' ? 'bg-green-200 text-green-800' : ''}
                         ${order.status === 'cancelled' ? 'bg-red-200 text-red-800' : ''}
                       `}>
-                        {order.status}
+                        {order.status === 'pending' ? 'Függőben' : ''}
+                        {order.status === 'processing' ? 'Feldolgozás' : ''}
+                        {order.status === 'shipped' ? 'Szállítva' : ''}
+                        {order.status === 'delivered' ? 'Kézbesítve' : ''}
+                        {order.status === 'cancelled' ? 'Törölve' : ''}
                       </span>
                     </td>
                     <td className="px-6 py-4">
