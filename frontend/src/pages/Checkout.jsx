@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { orders } from '../services/api';
+import { useCart } from '../context/CartContext';
 
 const Checkout = () => {
   const navigate = useNavigate();
+  const { clearCart } = useCart();
   const [shipping, setShipping] = useState({
     name: '',
     address: '',
@@ -25,6 +27,7 @@ const Checkout = () => {
     setError('');
     try {
       await orders.place(shipping, 'cash_on_delivery');
+      clearCart();
       alert('Rendelés sikeresen leadva!');
       navigate('/profile');
     } catch (err) {
