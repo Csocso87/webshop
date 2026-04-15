@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { formatPrice } from '../utils/format';
 
 const Cart = () => {
   const { user } = useAuth();
@@ -50,8 +51,8 @@ const Cart = () => {
                     className="border border-gray-300 rounded-md w-20 px-2 py-1"
                   />
                 </td>
-                <td className="px-6 py-4">{item.price} Ft</td>
-                <td className="px-6 py-4">{item.price * item.quantity} Ft</td>
+                <td className="px-6 py-4">{formatPrice(item.price)}</td>
+                <td className="px-6 py-4">{formatPrice(item.price * item.quantity)}</td>
                 <td className="px-6 py-4">
                   <button onClick={() => removeFromCart(item.product_id)} className="text-red-500 hover:text-red-700">
                     Törlés
@@ -62,7 +63,7 @@ const Cart = () => {
           </tbody>
         </table>
         <div className="px-6 py-4 bg-gray-50 flex justify-between items-center">
-          <span className="text-xl font-bold">Végösszeg: {total} Ft</span>
+          <span className="text-xl font-bold">Végösszeg: {formatPrice(total)}</span>
           <Link to="/checkout">
             <button className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition">
               Pénztár
