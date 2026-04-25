@@ -82,18 +82,6 @@ CREATE TABLE order_items (
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
--- Admin felhasználó (jelszó: admin123)
+-- Admin felhasználó (jelszó: password)
 INSERT INTO users (name, email, password, is_admin) VALUES ('Admin', 'admin@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 1);
 
--- Minta kategóriák
-INSERT INTO categories (name, description) VALUES ('Elektronika', 'Műszaki cikkek');
-INSERT INTO categories (name, description) VALUES ('Ruha', 'Divat és ruházat');
-INSERT INTO categories (name, description) VALUES ('Könyvek', 'Olvasnivaló');
-
--- Minta termékek (image_url ideiglenes, később a galériából frissül)
-INSERT INTO products (name, description, price, stock, image_url, category_id) VALUES 
-('Okostelefon', 'Legújabb modell', 120000, 50, NULL, 1),
-('Laptop', 'Nagy teljesítmény', 350000, 30, NULL, 1),
-('Póló', 'Pamut póló', 5000, 100, NULL, 2),
-('Farmer', 'Kék farmer', 15000, 75, NULL, 2),
-('Regény', 'Sikerkönyv', 4000, 200, NULL, 3);
