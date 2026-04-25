@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext'; 
+import { Toaster } from 'react-hot-toast';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -53,6 +54,7 @@ function App() {
             <AppRoutes />
           </main>
           <Footer />
+          <Toaster position="top-right" reverseOrder={false} />
         </CartProvider>
       </AuthProvider>
     </BrowserRouter>
