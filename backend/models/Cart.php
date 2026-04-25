@@ -22,7 +22,7 @@ class Cart {
     }
     
     public function addItem($user_id, $product_id, $quantity = 1) {
-        // Ellenőrizzük, hogy van-e már a kosárban
+        
         $checkQuery = "SELECT id, quantity FROM " . $this->table . " WHERE user_id = :user_id AND product_id = :product_id";
         $checkStmt = $this->conn->prepare($checkQuery);
         $checkStmt->bindParam(':user_id', $user_id);

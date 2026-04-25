@@ -14,14 +14,14 @@ class Order {
     
     public function createOrder($user_id, $cartItems, $shippingData, $totalAmount) {
         try {
-            // 1. Először zároljuk a termékeket és ellenőrizzük a készletet
+            
             $productIds = array_unique(array_column($cartItems, 'product_id'));
             $placeholders = implode(',', array_fill(0, count($productIds), '?'));
             $stmt = $this->conn->prepare("SELECT id, stock FROM products WHERE id IN ($placeholders) FOR UPDATE");
             $stmt->execute($productIds);
             $stocks = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
             
-            // Ellenőrizzük a készletet
+            
             foreach ($cartItems as $item) {
                 $pid = $item['product_id'];
                 if (!isset($stocks[$pid])) {
@@ -32,10 +32,10 @@ class Order {
                 }
             }
             
-            // 2. Indítjuk a tranzakciót (a zárolás már aktív)
+            
             $this->conn->beginTransaction();
             
-            // 3. Rendelés beszúrása
+            
             $query = "INSERT INTO " . $this->table . " (user_id, total_amount, shipping_name, shipping_address, shipping_city, shipping_zip, shipping_country, payment_method, status) 
                       VALUES (:user_id, :total_amount, :shipping_name, :shipping_address, :shipping_city, :shipping_zip, :shipping_country, :payment_method, 'pending')";
             $stmt = $this->conn->prepare($query);
@@ -50,7 +50,7 @@ class Order {
             $stmt->execute();
             $orderId = $this->conn->lastInsertId();
             
-            // 4. Rendelési tételek beszúrása
+            
             foreach ($cartItems as $item) {
                 $itemQuery = "INSERT INTO " . $this->itemsTable . " (order_id, product_id, quantity, price) VALUES (:order_id, :product_id, :quantity, :price)";
                 $itemStmt = $this->conn->prepare($itemQuery);
@@ -61,7 +61,7 @@ class Order {
                 $itemStmt->execute();
             }
             
-            // 5. Készlet frissítése (levonás)
+           
             foreach ($cartItems as $item) {
                 $updateStmt = $this->conn->prepare("UPDATE products SET stock = stock - :quantity WHERE id = :id");
                 $updateStmt->bindParam(':quantity', $item['quantity']);
@@ -75,7 +75,7 @@ class Order {
             if ($this->conn->inTransaction()) {
                 $this->conn->rollBack();
             }
-            // A hibaüzenetet továbbítjuk a controller felé
+            
             throw new Exception($e->getMessage());
         }
     }
@@ -89,7 +89,7 @@ class Order {
     }
     
     public function getOrderWithItems($order_id) {
-    // Rendelés adatainak lekérése
+    
     $query = "SELECT * FROM " . $this->table . " WHERE id = :order_id";
     $stmt = $this->conn->prepare($query);
     $stmt->bindParam(':order_id', $order_id);
@@ -97,7 +97,7 @@ class Order {
     $order = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if ($order) {
-        // Rendelési tételek lekérése külön
+        
         $itemQuery = "SELECT oi.*, p.name FROM " . $this->itemsTable . " oi 
                       JOIN products p ON oi.product_id = p.id 
                       WHERE oi.order_id = :order_id";

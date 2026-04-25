@@ -10,42 +10,77 @@ class Product {
         $this->conn = $database->getConnection();
     }
     
-    public function getAll($category_id = null, $sort = null, $search = null) {
-    $sql = "SELECT p.*, c.name as category_name FROM " . $this->table . " p LEFT JOIN categories c ON p.category_id = c.id WHERE 1=1";
-    $params = [];
-    
-    if ($category_id) {
-        $sql .= " AND p.category_id = :category_id";
-        $params[':category_id'] = $category_id;
-    }
-    
-    if ($search && trim($search) !== '') {
-        // Szóközök alapján széttördeljük a keresési kifejezést
-        $keywords = explode(' ', trim($search));
-        $keywordConditions = [];
-        foreach ($keywords as $index => $keyword) {
-            $paramName = ":search_$index";
-            $keywordConditions[] = "p.name LIKE $paramName";
-            $params[$paramName] = "%$keyword%";
+    public function getAll($category_id = null, $sort = null, $search = null, $limit = 20, $offset = 0) {
+        $sql = "SELECT p.*, c.name as category_name FROM " . $this->table . " p LEFT JOIN categories c ON p.category_id = c.id WHERE 1=1";
+        $params = [];
+
+        if ($category_id) {
+            $sql .= " AND p.category_id = :category_id";
+            $params[':category_id'] = $category_id;
         }
-        $sql .= " AND (" . implode(' AND ', $keywordConditions) . ")";
+
+        if ($search && trim($search) !== '') {
+            $keywords = explode(' ', trim($search));
+            $keywordConditions = [];
+            foreach ($keywords as $index => $keyword) {
+                $paramName = ":search_$index";
+                $keywordConditions[] = "p.name LIKE $paramName";
+                $params[$paramName] = "%$keyword%";
+            }
+            $sql .= " AND (" . implode(' AND ', $keywordConditions) . ")";
+        }
+
+        if ($sort == 'price_asc') {
+            $sql .= " ORDER BY p.price ASC";
+        } elseif ($sort == 'price_desc') {
+            $sql .= " ORDER BY p.price DESC";
+        } else {
+            $sql .= " ORDER BY p.id DESC";
+        }
+
+        $sql .= " LIMIT :limit OFFSET :offset";
+        $params[':limit'] = $limit;
+        $params[':offset'] = $offset;
+
+        $stmt = $this->conn->prepare($sql);
+        foreach ($params as $key => $value) {
+            if ($key === ':limit' || $key === ':offset') {
+                $stmt->bindValue($key, $value, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue($key, $value);
+            }
+        }
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    
-    if ($sort == 'price_asc') {
-        $sql .= " ORDER BY p.price ASC";
-    } elseif ($sort == 'price_desc') {
-        $sql .= " ORDER BY p.price DESC";
-    } else {
-        $sql .= " ORDER BY p.id DESC";
+
+    public function getTotalCount($category_id = null, $search = null) {
+        $sql = "SELECT COUNT(*) as total FROM " . $this->table . " p WHERE 1=1";
+        $params = [];
+
+        if ($category_id) {
+            $sql .= " AND p.category_id = :category_id";
+            $params[':category_id'] = $category_id;
+        }
+
+        if ($search && trim($search) !== '') {
+            $keywords = explode(' ', trim($search));
+            $keywordConditions = [];
+            foreach ($keywords as $index => $keyword) {
+                $paramName = ":search_$index";
+                $keywordConditions[] = "p.name LIKE $paramName";
+                $params[$paramName] = "%$keyword%";
+            }
+            $sql .= " AND (" . implode(' AND ', $keywordConditions) . ")";
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        $stmt->execute();
+        return (int)$stmt->fetchColumn();
     }
-    
-    $stmt = $this->conn->prepare($sql);
-    foreach ($params as $key => $value) {
-        $stmt->bindValue($key, $value);
-    }
-    $stmt->execute();
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
     
     public function getById($id) {
         $query = "SELECT p.*, c.name as category_name FROM " . $this->table . " p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = :id";
@@ -113,6 +148,12 @@ class Product {
         $stmt->execute([$product_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getImageById($image_id) {
+        $stmt = $this->conn->prepare("SELECT * FROM product_images WHERE id = ?");
+        $stmt->execute([$image_id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
     
     public function addImage($product_id, $image_url, $is_primary = false, $sort_order = 0) {
         $stmt = $this->conn->prepare("INSERT INTO product_images (product_id, image_url, is_primary, sort_order) VALUES (?, ?, ?, ?)");
@@ -121,6 +162,12 @@ class Product {
     
     public function deleteImage($image_id, $product_id) {
         $stmt = $this->conn->prepare("DELETE FROM product_images WHERE id = ? AND product_id = ?");
+        return $stmt->execute([$image_id, $product_id]);
+    }
+    
+    public function setPrimaryImage($product_id, $image_id) {
+        $this->conn->prepare("UPDATE product_images SET is_primary = 0 WHERE product_id = ?")->execute([$product_id]);
+        $stmt = $this->conn->prepare("UPDATE product_images SET is_primary = 1 WHERE id = ? AND product_id = ?");
         return $stmt->execute([$image_id, $product_id]);
     }
     
