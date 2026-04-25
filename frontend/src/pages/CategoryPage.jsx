@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { products, categories } from '../services/api';
 import ProductCard from '../components/ProductCard';
+import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import SearchBar from '../components/SearchBar';
 import SortDropdown from '../components/SortDropdown';
 import Pagination from '../components/Pagination';
@@ -14,6 +15,7 @@ const CategoryPage = () => {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('');
   const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
   const limit = 20;
 
   const page = parseInt(searchParams.get('page') || '1', 10);
@@ -37,6 +39,7 @@ const CategoryPage = () => {
   };
 
   useEffect(() => {
+    setLoading(true);
     const params = {};
     if (id) params.category_id = id;
     if (search) params.search = search;
@@ -46,6 +49,7 @@ const CategoryPage = () => {
     products.getAll(params).then(res => {
       setProductList(res.data.data);
       setTotalPages(res.data.totalPages);
+      setLoading(false);
     });
   }, [id, search, sort, page]);
 
@@ -64,11 +68,13 @@ const CategoryPage = () => {
         <SortDropdown sort={sort} onSortChange={handleSortChange} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {productList.map(product => (
-          <ProductCard key={product.id} product={product} />
-        ))}
+        {loading ? (
+          Array(limit).fill().map((_, index) => <ProductCardSkeleton key={index} />)
+        ) : (
+          productList.map(product => <ProductCard key={product.id} product={product} />)
+        )}
       </div>
-      {totalPages > 1 && (
+      {totalPages > 1 && !loading && (
         <Pagination currentPage={page} totalPages={totalPages} onPageChange={handlePageChange} />
       )}
     </div>

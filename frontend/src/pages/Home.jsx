@@ -4,6 +4,7 @@ import CategoryList from '../components/CategoryList';
 import SearchBar from '../components/SearchBar';
 import SortDropdown from '../components/SortDropdown';
 import ProductCard from '../components/ProductCard';
+import ProductCardSkeleton from '../components/ProductCardSkeleton';
 import Pagination from '../components/Pagination';
 import { products } from '../services/api';
 
@@ -13,12 +14,11 @@ const Home = () => {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('');
   const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
   const limit = 20;
 
-  // Oldalszám kiolvasása az URL-ből (alapértelmezett 1)
   const page = parseInt(searchParams.get('page') || '1', 10);
 
-  // Keresés és rendezés változásakor az oldalszámot visszaállítjuk 1-re, és az URL-be is beírjuk
   const handleSearchChange = (value) => {
     setSearch(value);
     setSearchParams({ page: 1, ...(value && { search: value }), ...(sort && { sort }) });
@@ -29,8 +29,8 @@ const Home = () => {
     setSearchParams({ page: 1, ...(search && { search }), ...(value && { sort: value }) });
   };
 
-  // Adatok betöltése, ha a paraméterek változnak
   useEffect(() => {
+    setLoading(true);
     const params = {};
     if (search) params.search = search;
     if (sort) params.sort = sort;
@@ -39,10 +39,10 @@ const Home = () => {
     products.getAll(params).then(res => {
       setProductList(res.data.data);
       setTotalPages(res.data.totalPages);
+      setLoading(false);
     });
   }, [search, sort, page]);
 
-  // Lapozó gomb kezelése (URL módosítása)
   const handlePageChange = (newPage) => {
     setSearchParams({ page: newPage, ...(search && { search }), ...(sort && { sort }) });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -56,11 +56,13 @@ const Home = () => {
         <SortDropdown sort={sort} onSortChange={handleSortChange} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {productList.map(product => (
-          <ProductCard key={product.id} product={product} />
-        ))}
+        {loading ? (
+          Array(limit).fill().map((_, index) => <ProductCardSkeleton key={index} />)
+        ) : (
+          productList.map(product => <ProductCard key={product.id} product={product} />)
+        )}
       </div>
-      {totalPages > 1 && (
+      {totalPages > 1 && !loading && (
         <Pagination currentPage={page} totalPages={totalPages} onPageChange={handlePageChange} />
       )}
     </div>
