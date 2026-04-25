@@ -12,8 +12,20 @@ class ProductController {
         $category_id = isset($_GET['category_id']) ? $_GET['category_id'] : null;
         $sort = isset($_GET['sort']) ? $_GET['sort'] : null;
         $search = isset($_GET['search']) ? $_GET['search'] : null;
-        $products = $this->productModel->getAll($category_id, $sort, $search);
-        echo json_encode($products);
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+        $offset = ($page - 1) * $limit;
+
+        $products = $this->productModel->getAll($category_id, $sort, $search, $limit, $offset);
+        $total = $this->productModel->getTotalCount($category_id, $search);
+
+        echo json_encode([
+            'data' => $products,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+            'totalPages' => ceil($total / $limit)
+        ]);
     }
     
     public function getById($id) {
@@ -48,30 +60,55 @@ class ProductController {
         $data = json_decode(file_get_contents("php://input"), true);
         if (!isset($data['name']) || !isset($data['price']) || !isset($data['stock'])) {
             http_response_code(400);
-            echo json_encode(['error' => 'Missing required fields']);
+            echo json_encode(['error' => 'Hiányzó mezők (név, ár, készlet)']);
             return;
         }
         
-        // Termék létrehozása (image_url ideiglenesen üres)
+        $hasImage = false;
+        $imageUrl = $data['image_url'] ?? '';
+        if (!empty($imageUrl) && strpos($imageUrl, 'data:image') === 0) {
+            $hasImage = true;
+        }
+        if (!$hasImage && isset($data['gallery']) && is_array($data['gallery']) && count($data['gallery']) > 0) {
+            $hasImage = true;
+        }
+        if (!$hasImage) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Legalább egy képet fel kell tölteni (borítókép vagy galériakép)']);
+            return;
+        }
+        
+        if (strpos($imageUrl, 'data:image') === 0) {
+            $savedUrl = $this->saveBase64Image($imageUrl);
+            if ($savedUrl) {
+                $imageUrl = $savedUrl;
+            } else {
+                http_response_code(400);
+                echo json_encode(['error' => 'Érvénytelen kép adat']);
+                return;
+            }
+        } else {
+            $imageUrl = '';
+        }
+        
         $result = $this->productModel->create(
             $data['name'],
             $data['description'] ?? '',
             $data['price'],
             $data['stock'],
-            '',  // image_url üres, később frissítjük
+            $imageUrl,
             $data['category_id'] ?? null
         );
         
         if (!$result) {
             http_response_code(500);
-            echo json_encode(['error' => 'Creation failed']);
+            echo json_encode(['error' => 'Adatbázis hiba a termék létrehozásakor']);
             return;
         }
         
         $newId = $this->productModel->lastInsertId();
         $primaryImageUrl = null;
         
-        // Galéria képek mentése
         if (isset($data['gallery']) && is_array($data['gallery'])) {
             foreach ($data['gallery'] as $galleryImage) {
                 $galleryUrl = $galleryImage['image_url'] ?? '';
@@ -85,134 +122,121 @@ class ProductController {
                             $primaryImageUrl = $savedGalleryUrl;
                         }
                     }
-                } else {
-                    // Ha már létező URL (nem base64) – csak szerkesztésnél fordulhat elő, itt nem
                 }
             }
         }
         
-        // Ha nincs kijelölt elsődleges kép, de van galériakép, az első legyen a borító
         if (!$primaryImageUrl) {
             $images = $this->productModel->getImages($newId);
             if (!empty($images)) {
                 $primaryImageUrl = $images[0]['image_url'];
-                // Beállítjuk az első képet elsődlegesnek
                 $this->productModel->setPrimaryImage($newId, $images[0]['id']);
             }
         }
         
-        // Frissítjük a products tábla image_url mezőjét
         if ($primaryImageUrl) {
             $this->productModel->updateImageUrl($newId, $primaryImageUrl);
+        } else {
+            $this->productModel->delete($newId);
+            http_response_code(400);
+            echo json_encode(['error' => 'Nem sikerült képet menteni, a termék létrehozása megszakítva']);
+            return;
         }
         
-        echo json_encode(['message' => 'Product created', 'id' => $newId]);
+        echo json_encode(['message' => 'Termék létrehozva', 'id' => $newId]);
     }
     
     public function update($id) {
-    $data = json_decode(file_get_contents("php://input"), true);
-    if (!isset($data['name']) || !isset($data['price']) || !isset($data['stock'])) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Missing required fields']);
-        return;
-    }
-    
-    // Termék adatok frissítése (image_url-t majd később állítjuk be)
-    $result = $this->productModel->update(
-        $id,
-        $data['name'],
-        $data['description'] ?? '',
-        $data['price'],
-        $data['stock'],
-        '',  // image_url-t majd a galéria alapján állítjuk be
-        $data['category_id'] ?? null
-    );
-    
-    if (!$result) {
-        http_response_code(500);
-        echo json_encode(['error' => 'Update failed']);
-        return;
-    }
-    
-    // 1. Lekérjük a meglévő galériaképeket
-    $existingImages = $this->productModel->getImages($id);
-    $existingMap = [];
-    foreach ($existingImages as $img) {
-        $existingMap[$img['id']] = $img;
-    }
-    
-    // 2. Feldolgozzuk a frontend által küldött galériát
-    $newGallery = isset($data['gallery']) && is_array($data['gallery']) ? $data['gallery'] : [];
-    $receivedUrls = [];
-    $primaryImageUrl = null;
-    
-    foreach ($newGallery as $galleryImage) {
-        $galleryUrl = $galleryImage['image_url'] ?? '';
-        $is_primary = isset($galleryImage['is_primary']) ? (bool)$galleryImage['is_primary'] : false;
-        $sort_order = isset($galleryImage['sort_order']) ? (int)$galleryImage['sort_order'] : 0;
+        $data = json_decode(file_get_contents("php://input"), true);
+        if (!isset($data['name']) || !isset($data['price']) || !isset($data['stock'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Missing required fields']);
+            return;
+        }
         
-        // Ha a kép base64 (új feltöltés)
-        if (strpos($galleryUrl, 'data:image') === 0) {
-            $savedUrl = $this->saveBase64Image($galleryUrl);
-            if ($savedUrl) {
-                $this->productModel->addImage($id, $savedUrl, $is_primary, $sort_order);
-                $receivedUrls[] = $savedUrl;
-                if ($is_primary) $primaryImageUrl = $savedUrl;
-            }
-        } else {
-            // Meglévő URL – keresünk hozzá az adatbázisban egyező URL-t
-            $found = false;
-            foreach ($existingMap as $img) {
-                if ($img['image_url'] === $galleryUrl) {
-                    // Frissítjük az elsődlegességet és a sorrendet
-                    $this->productModel->updateImageMetadata($img['id'], $is_primary, $sort_order);
+        $result = $this->productModel->update(
+            $id,
+            $data['name'],
+            $data['description'] ?? '',
+            $data['price'],
+            $data['stock'],
+            '',
+            $data['category_id'] ?? null
+        );
+        
+        if (!$result) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Update failed']);
+            return;
+        }
+        
+        $existingImages = $this->productModel->getImages($id);
+        $existingMap = [];
+        foreach ($existingImages as $img) {
+            $existingMap[$img['id']] = $img;
+        }
+        
+        $newGallery = isset($data['gallery']) && is_array($data['gallery']) ? $data['gallery'] : [];
+        $receivedUrls = [];
+        $primaryImageUrl = null;
+        
+        foreach ($newGallery as $galleryImage) {
+            $galleryUrl = $galleryImage['image_url'] ?? '';
+            $is_primary = isset($galleryImage['is_primary']) ? (bool)$galleryImage['is_primary'] : false;
+            $sort_order = isset($galleryImage['sort_order']) ? (int)$galleryImage['sort_order'] : 0;
+            
+            if (strpos($galleryUrl, 'data:image') === 0) {
+                $savedUrl = $this->saveBase64Image($galleryUrl);
+                if ($savedUrl) {
+                    $this->productModel->addImage($id, $savedUrl, $is_primary, $sort_order);
+                    $receivedUrls[] = $savedUrl;
+                    if ($is_primary) $primaryImageUrl = $savedUrl;
+                }
+            } else {
+                $found = false;
+                foreach ($existingMap as $img) {
+                    if ($img['image_url'] === $galleryUrl) {
+                        $this->productModel->updateImageMetadata($img['id'], $is_primary, $sort_order);
+                        $receivedUrls[] = $galleryUrl;
+                        if ($is_primary) $primaryImageUrl = $galleryUrl;
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found && !empty($galleryUrl)) {
+                    $this->productModel->addImage($id, $galleryUrl, $is_primary, $sort_order);
                     $receivedUrls[] = $galleryUrl;
                     if ($is_primary) $primaryImageUrl = $galleryUrl;
-                    $found = true;
-                    break;
                 }
             }
-            // Ha nem találtuk, akkor új kép (ilyen nem fordulhat elő, mert csak base64 vagy meglévő URL jöhet)
-            if (!$found && !empty($galleryUrl)) {
-                // Biztonsági tartalék: hozzáadjuk új képként (nem base64, de talán hibás)
-                $this->productModel->addImage($id, $galleryUrl, $is_primary, $sort_order);
-                $receivedUrls[] = $galleryUrl;
-                if ($is_primary) $primaryImageUrl = $galleryUrl;
+        }
+        
+        foreach ($existingImages as $img) {
+            if (!in_array($img['image_url'], $receivedUrls)) {
+                $filePath = __DIR__ . '/../uploads/' . basename($img['image_url']);
+                if (file_exists($filePath)) unlink($filePath);
+                $this->productModel->deleteImage($img['id'], $id);
             }
         }
-    }
-    
-    // 3. Töröljük azokat a képeket, amelyek nem szerepelnek a kapott listában
-    foreach ($existingImages as $img) {
-        if (!in_array($img['image_url'], $receivedUrls)) {
-            // Fájl törlése a fizikai mappából
-            $filePath = __DIR__ . '/../uploads/' . basename($img['image_url']);
-            if (file_exists($filePath)) unlink($filePath);
-            $this->productModel->deleteImage($img['id'], $id);
+        
+        if (!$primaryImageUrl) {
+            $images = $this->productModel->getImages($id);
+            if (!empty($images)) {
+                $primaryImageUrl = $images[0]['image_url'];
+                $this->productModel->setPrimaryImage($id, $images[0]['id']);
+            }
         }
-    }
-    
-    // 4. Ha nincs kijelölt elsődleges kép, de van galériakép, az első legyen a borító
-    if (!$primaryImageUrl) {
-        $images = $this->productModel->getImages($id);
-        if (!empty($images)) {
-            $primaryImageUrl = $images[0]['image_url'];
-            $this->productModel->setPrimaryImage($id, $images[0]['id']);
+        
+        if ($primaryImageUrl) {
+            $this->productModel->updateImageUrl($id, $primaryImageUrl);
+        } else {
+            $this->productModel->updateImageUrl($id, '');
         }
+        
+        echo json_encode(['message' => 'Product updated']);
     }
-    
-    // 5. Frissítjük a products tábla image_url mezőjét
-    if ($primaryImageUrl) {
-        $this->productModel->updateImageUrl($id, $primaryImageUrl);
-    } else {
-        $this->productModel->updateImageUrl($id, '');
-    }
-    
-    echo json_encode(['message' => 'Product updated']);
-}
     
     public function delete($id) {
-        // Törlés előtt a galéria képeket is töröljük a fájlrendszerből
         $images = $this->productModel->getImages($id);
         foreach ($images as $img) {
             $filePath = __DIR__ . '/../uploads/' . basename($img['image_url']);
@@ -227,14 +251,50 @@ class ProductController {
         }
     }
     
-    // ---------- Galéria kezelés (meglévő metódusok) ----------
+    // ---------- Galéria kezelés ----------
+    // Több kép feltöltése termékhez (nem használt, de meghagyható)
     public function uploadImages($product_id) {
-        // ... marad a régi kód, de a frontend már nem használja ezt a végpontot.
-        // A metódust meghagyhatjuk, de nem szükséges.
+        // ...
     }
     
-    public function deleteImage($product_id, $image_id) { /* ... */ }
-    public function setPrimaryImage($product_id, $image_id) { /* ... */ }
-    public function reorderImages($product_id) { /* ... */ }
+    // Egy kép törlése (fájl és adatbázis)
+    public function deleteImage($product_id, $image_id) {
+        // Lekérjük a kép adatait
+        $image = $this->productModel->getImageById($image_id);
+        if ($image) {
+            $filePath = __DIR__ . '/../uploads/' . basename($image['image_url']);
+            if (file_exists($filePath)) {
+                unlink($filePath);
+            }
+        }
+        $result = $this->productModel->deleteImage($image_id, $product_id);
+        if ($result) {
+            echo json_encode(['success' => true]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Törlés sikertelen']);
+        }
+    }
+    
+    public function setPrimaryImage($product_id, $image_id) {
+        $result = $this->productModel->setPrimaryImage($product_id, $image_id);
+        if ($result) {
+            echo json_encode(['success' => true]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['error' => 'Beállítás sikertelen']);
+        }
+    }
+    
+    public function reorderImages($product_id) {
+        $data = json_decode(file_get_contents("php://input"), true);
+        if (!isset($data['order']) || !is_array($data['order'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Érvénytelen sorrend']);
+            return;
+        }
+        $this->productModel->updateImageOrder($product_id, $data['order']);
+        echo json_encode(['success' => true]);
+    }
 }
 ?>
