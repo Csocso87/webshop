@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { formatPrice } from '../utils/format';
 import ImageGallery from '../components/ImageGallery';
+import toast from 'react-hot-toast';
 
 const ProductPage = () => {
   const { id } = useParams();
@@ -25,9 +26,9 @@ const ProductPage = () => {
     }
     try {
       await addToCart(id, quantity);
-      alert('Termék a kosárban!');
+      toast.success('Termék a kosárban!');
     } catch (err) {
-      alert(err.response?.data?.error || 'Sikertelen hozzáadás');
+      toast.error(err.response?.data?.error || 'Sikertelen hozzáadás');
     }
   };
 

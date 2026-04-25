@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { orders } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ const Checkout = () => {
     try {
       await orders.place(shipping, 'cash_on_delivery');
       clearCart();
-      alert('Rendelés sikeresen leadva!');
+      toast.success('Rendelés sikeresen leadva!');
       navigate('/profile');
     } catch (err) {
       setError(err.response?.data?.error || 'Hiba történt');
