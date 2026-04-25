@@ -1,16 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { products, categories } from '../../services/api';
 import { formatPrice } from '../../utils/format';
 import ImageUploader from '../../components/ImageUploader';
+import toast from 'react-hot-toast';
 
 const AdminProducts = () => {
   const [productList, setProductList] = useState([]);
   const [categoryList, setCategoryList] = useState([]);
-  const [form, setForm] = useState({ name: '', description: '', price: '', stock: '', category_id: '' });
+  const [form, setForm] = useState({ name: '', description: '', price: '', stock: '', image_url: '', category_id: '' });
   const [editingId, setEditingId] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const fileInputRef = useRef(null);
   const [galleryImages, setGalleryImages] = useState([]);
 
-  const fetchProducts = () => products.getAll().then(res => setProductList(res.data));
+  const fetchProducts = () => products.getAll().then(res => {
+    const productData = res.data.data || res.data;
+    setProductList(productData);
+  });
   const fetchCategories = () => categories.getAll().then(res => setCategoryList(res.data));
   useEffect(() => {
     fetchProducts();
@@ -19,13 +25,35 @@ const AdminProducts = () => {
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setForm({ ...form, image_url: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const resetForm = () => {
-    setForm({ name: '', description: '', price: '', stock: '', category_id: '' });
+    setForm({ name: '', description: '', price: '', stock: '', image_url: '', category_id: '' });
+    setImageFile(null);
     setGalleryImages([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const hasImage = form.image_url && form.image_url.startsWith('data:');
+    const hasGalleryImages = galleryImages.length > 0;
+    if (!hasImage && !hasGalleryImages) {
+      toast.error('Legalább egy képet fel kell tölteni!');
+      return;
+    }
+
     const productData = {
       ...form,
       gallery: galleryImages.map(img => ({
@@ -38,41 +66,37 @@ const AdminProducts = () => {
     try {
       if (editingId) {
         await products.update(editingId, productData);
-        alert('Termék frissítve');
+        toast.success('Termék frissítve');
         setEditingId(null);
       } else {
         const response = await products.create(productData);
         if (response.data && response.data.id) {
-          alert('Termék létrehozva galériával!');
+          toast.success('Termék létrehozva!');
         } else {
-          alert('Termék létrehozva, de galéria nem menthető?');
+          toast.error(response.data?.error || 'Ismeretlen hiba a termék létrehozásakor');
+          return;
         }
       }
       resetForm();
       await fetchProducts();
     } catch (err) {
-      console.error(err);
-      alert('Hiba a mentés során');
+      const errorMsg = err.response?.data?.error || 'Hiba a mentés során';
+      toast.error(errorMsg);
     }
   };
 
   const handleEdit = async (p) => {
     setEditingId(p.id);
-    setForm({
-      name: p.name,
-      description: p.description || '',
-      price: p.price,
-      stock: p.stock,
-      category_id: p.category_id || ''
-    });
+    setForm(p);
+    setImageFile(null);
     try {
       const res = await products.getById(p.id);
-      const images = res.data.images || [];
-      setGalleryImages(images.map(img => ({ ...img, is_temp: false })));
+      setGalleryImages(res.data.images || []);
     } catch (err) {
       console.error('Hiba a képek betöltésekor', err);
       setGalleryImages([]);
     }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleCancel = () => {
@@ -83,6 +107,7 @@ const AdminProducts = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Biztosan törlöd ezt a terméket?')) {
       await products.delete(id);
+      toast.success('Termék törölve');
       if (editingId === id) handleCancel();
       fetchProducts();
     }
@@ -117,7 +142,14 @@ const AdminProducts = () => {
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
-              <tr><th>ID</th><th>Név</th><th>Ár</th><th>Készlet</th><th>Kategória</th><th>Műveletek</th></tr>
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Név</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ár</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Készlet</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategória</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Műveletek</th>
+              </tr>
             </thead>
             <tbody>
               {productList.map(p => (
