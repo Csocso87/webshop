@@ -3,6 +3,8 @@ import { products, categories } from '../../services/api';
 import { formatPrice } from '../../utils/format';
 import ImageUploader from '../../components/ImageUploader';
 import toast from 'react-hot-toast';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 const AdminProducts = () => {
   const [productList, setProductList] = useState([]);
@@ -24,6 +26,7 @@ const AdminProducts = () => {
   }, []);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleDescriptionChange = (value) => setForm({ ...form, description: value });
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -113,19 +116,46 @@ const AdminProducts = () => {
     }
   };
 
+  const quillModules = {
+    toolbar: [
+      [{ 'header': [1, 2, false] }],
+      ['bold', 'italic', 'underline'],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      ['clean']
+    ]
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h2 className="text-2xl font-bold mb-6">Termékek kezelése</h2>
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-md p-6 mb-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input name="name" placeholder="Termék név" value={form.name} onChange={handleChange} required className="border border-gray-300 rounded-lg px-4 py-2" />
-          <textarea name="description" placeholder="Leírás" value={form.description} onChange={handleChange} className="border border-gray-300 rounded-lg px-4 py-2" />
           <input name="price" type="number" step="1" placeholder="Ár (Ft)" value={form.price} onChange={handleChange} required className="border border-gray-300 rounded-lg px-4 py-2" />
           <input name="stock" type="number" placeholder="Készlet" value={form.stock} onChange={handleChange} required className="border border-gray-300 rounded-lg px-4 py-2" />
           <select name="category_id" value={form.category_id} onChange={handleChange} className="border border-gray-300 rounded-lg px-4 py-2">
             <option value="">Válassz kategóriát</option>
             {categoryList.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
           </select>
+          <input type="file" accept="image/*" onChange={handleFileChange} ref={fileInputRef} className="border border-gray-300 rounded-lg px-4 py-2" />
+        </div>
+        {form.image_url && !form.image_url.startsWith('data:') && (
+          <div className="mt-2">Jelenlegi kép: <img src={form.image_url} alt="current" className="w-12 h-12 object-cover inline" /></div>
+        )}
+        {form.image_url && form.image_url.startsWith('data:') && (
+          <div className="mt-2">Új kép előnézet: <img src={form.image_url} alt="preview" className="w-12 h-12 object-cover inline" /></div>
+        )}
+
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Leírás</label>
+          <ReactQuill
+            theme="snow"
+            value={form.description}
+            onChange={handleDescriptionChange}
+            placeholder="Termék leírása (formázható)"
+            className="bg-white rounded-lg"
+            modules={quillModules}
+          />
         </div>
 
         <ImageUploader onImagesChange={setGalleryImages} initialImages={galleryImages} />
