@@ -42,18 +42,19 @@ const ProductPage = () => {
         <div className="md:w-1/2">
           <ImageGallery images={product.images || []} productName={product.name} />
         </div>
-        <div className="md:w-1/2 flex flex-col justify-between">
+        <div className="md:w-1/2 flex flex-col">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">{product.name}</h1>
+            {/* Leírás görgethető dobozban */}
             <div 
-              className="ql-editor mt-2 text-gray-600"
+              className="ql-editor mt-2 text-gray-600 max-h-[250px] overflow-y-auto pr-2"
               dangerouslySetInnerHTML={{ __html: product.description || '' }}
             />
-            <div className="mt-4 space-y-2">
-              <p className="text-2xl font-bold text-blue-600">{formatPrice(product.price)}</p>
-              <p className="text-gray-700">Készlet: <span className="font-semibold">{product.stock}</span></p>
-              <p className="text-gray-700">Kategória: {product.category_name}</p>
-            </div>
+          </div>
+          <div className="mt-4 space-y-2">
+            <p className="text-2xl font-bold text-blue-600">{formatPrice(product.price)}</p>
+            <p className="text-gray-700">Készlet: <span className="font-semibold">{product.stock}</span></p>
+            <p className="text-gray-700">Kategória: {product.category_name}</p>
           </div>
           {!isAdmin && (
             <div className="mt-6">
