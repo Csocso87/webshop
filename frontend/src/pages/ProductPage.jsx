@@ -46,7 +46,7 @@ const ProductPage = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-800">{product.name}</h1>
             <div 
-              className="mt-2 prose max-w-none text-gray-600"
+              className="ql-editor mt-2 text-gray-600"
               dangerouslySetInnerHTML={{ __html: product.description || '' }}
             />
             <div className="mt-4 space-y-2">
