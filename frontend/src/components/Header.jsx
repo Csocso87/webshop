@@ -22,7 +22,7 @@ const Header = () => {
           WebShop
         </Link>
         <nav className="flex items-center space-x-4">
-          <Link to="/" className="text-gray-700 hover:text-blue-600 transition">Home</Link>
+          <Link to="/" className="text-gray-700 hover:text-blue-600 transition">Kezdőlap</Link>
 
           {user && !user.is_admin && (
             <Link to="/cart" className="relative text-gray-700 hover:text-blue-600 transition">
