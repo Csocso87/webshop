@@ -45,7 +45,10 @@ const ProductPage = () => {
         <div className="md:w-1/2 flex flex-col justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">{product.name}</h1>
-            <p className="text-gray-600 mt-2">{product.description}</p>
+            <div 
+              className="mt-2 prose max-w-none text-gray-600"
+              dangerouslySetInnerHTML={{ __html: product.description || '' }}
+            />
             <div className="mt-4 space-y-2">
               <p className="text-2xl font-bold text-blue-600">{formatPrice(product.price)}</p>
               <p className="text-gray-700">Készlet: <span className="font-semibold">{product.stock}</span></p>
