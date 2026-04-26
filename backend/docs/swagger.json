@@ -1,0 +1,487 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Webshop API",
+    "description": "REST API webshop alkalmazáshoz – termékek, kosár, rendelés, admin felület",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Webshop Fejlesztőcsapat",
+      "email": "info@webshop.hu"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost/webshop/backend/api",
+      "description": "Helyi fejlesztői szerver (XAMPP)"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token (a `/login` válaszából). Add hozzá: `Bearer <token>`"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "email": { "type": "string" },
+          "is_admin": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "created_at": { "type": "string" }
+        }
+      },
+      "ProductImage": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "product_id": { "type": "integer" },
+          "image_url": { "type": "string" },
+          "is_primary": { "type": "boolean" },
+          "sort_order": { "type": "integer" }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "price": { "type": "integer" },
+          "stock": { "type": "integer" },
+          "image_url": { "type": "string" },
+          "category_id": { "type": "integer" },
+          "category_name": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "images": { "type": "array", "items": { "$ref": "#/components/schemas/ProductImage" } }
+        }
+      },
+      "CartItem": {
+        "type": "object",
+        "properties": {
+          "product_id": { "type": "integer" },
+          "name": { "type": "string" },
+          "quantity": { "type": "integer" },
+          "price": { "type": "integer" },
+          "available_stock": { "type": "integer" }
+        }
+      },
+      "CartResponse": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/CartItem" } },
+          "total": { "type": "integer" }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "user_id": { "type": "integer" },
+          "order_date": { "type": "string" },
+          "total_amount": { "type": "integer" },
+          "status": { "type": "string", "enum": ["pending", "processing", "shipped", "delivered", "cancelled"] },
+          "shipping_name": { "type": "string" },
+          "shipping_address": { "type": "string" },
+          "shipping_city": { "type": "string" },
+          "shipping_zip": { "type": "string" },
+          "shipping_country": { "type": "string" },
+          "payment_method": { "type": "string" }
+        }
+      },
+      "OrderItem": {
+        "type": "object",
+        "properties": {
+          "product_id": { "type": "integer" },
+          "name": { "type": "string" },
+          "quantity": { "type": "integer" },
+          "price": { "type": "integer" }
+        }
+      },
+      "OrderDetails": {
+        "type": "object",
+        "allOf": [
+          { "$ref": "#/components/schemas/Order" },
+          { "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/OrderItem" } } } }
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": { "error": { "type": "string" } }
+      }
+    }
+  },
+  "paths": {
+    "/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Regisztráció",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password"],
+                "properties": {
+                  "name": { "type": "string", "example": "Kiss Péter" },
+                  "email": { "type": "string", "format": "email", "example": "peter@example.com" },
+                  "password": { "type": "string", "format": "password", "example": "titok123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sikeres regisztráció",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Hiányzó vagy érvénytelen mező", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Bejelentkezés",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "example": "admin@example.com" },
+                  "password": { "type": "string", "example": "admin123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sikeres bejelentkezés",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Hibás email vagy jelszó" }
+        }
+      }
+    },
+    "/profile": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Saját profil lekérése",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Felhasználói adatok",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
+          },
+          "401": { "description": "Hiányzó vagy érvénytelen token" }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "tags": ["Products"],
+        "summary": "Termékek listája (szűrés, rendezés, lapozás)",
+        "parameters": [
+          { "name": "category_id", "in": "query", "schema": { "type": "integer" }, "description": "Kategória ID" },
+          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Keresőszó" },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["price_asc", "price_desc"] }, "description": "Rendezés" },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 }, "description": "Oldalszám" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 }, "description": "Elemek/oldal" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Termékek lapozási metaadatokkal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Product" } },
+                    "total": { "type": "integer" },
+                    "page": { "type": "integer" },
+                    "limit": { "type": "integer" },
+                    "totalPages": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products/{id}": {
+      "get": {
+        "tags": ["Products"],
+        "summary": "Egy termék részletes adatai (galériaképekkel)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "description": "Termék ID" }
+        ],
+        "responses": {
+          "200": { "description": "Termékadatok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Product" } } } },
+          "404": { "description": "Termék nem található" }
+        }
+      },
+      "post": {
+        "tags": ["Products"],
+        "summary": "Új termék létrehozása (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "price", "stock"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "price": { "type": "integer" },
+                  "stock": { "type": "integer" },
+                  "category_id": { "type": "integer" },
+                  "image_url": { "type": "string", "description": "Base64 borítókép" },
+                  "gallery": { "type": "array", "items": { "type": "object", "properties": { "image_url": { "type": "string" }, "is_primary": { "type": "boolean" }, "sort_order": { "type": "integer" } } } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Termék létrehozva" },
+          "400": { "description": "Hiányzó mezők vagy érvénytelen kép" },
+          "403": { "description": "Nincs admin jog" }
+        }
+      },
+      "put": {
+        "tags": ["Products"],
+        "summary": "Termék módosítása (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "price": { "type": "integer" },
+                  "stock": { "type": "integer" },
+                  "category_id": { "type": "integer" },
+                  "image_url": { "type": "string" },
+                  "gallery": { "type": "array" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Termék módosítva" },
+          "403": { "description": "Nincs admin jog" },
+          "404": { "description": "Termék nem található" }
+        }
+      },
+      "delete": {
+        "tags": ["Products"],
+        "summary": "Termék törlése (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Termék törölve" },
+          "403": { "description": "Nincs admin jog" },
+          "404": { "description": "Termék nem található" }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": ["Categories"],
+        "summary": "Összes kategória lekérése (nyilvános)",
+        "responses": {
+          "200": { "description": "Kategóriák listája", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Category" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Categories"],
+        "summary": "Új kategória létrehozása (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "description": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Kategória létrehozva" }, "403": { "description": "Nincs admin jog" } }
+      }
+    },
+    "/categories/{id}": {
+      "put": {
+        "tags": ["Categories"],
+        "summary": "Kategória módosítása (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string" }, "description": { "type": "string" } } } } }
+        },
+        "responses": { "200": { "description": "Kategória módosítva" }, "403": { "description": "Nincs admin jog" } }
+      },
+      "delete": {
+        "tags": ["Categories"],
+        "summary": "Kategória törlése (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Kategória törölve" }, "403": { "description": "Nincs admin jog" } }
+      }
+    },
+    "/cart": {
+      "get": {
+        "tags": ["Cart"],
+        "summary": "Kosár lekérése",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Kosár tartalma", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CartResponse" } } } }, "401": { "description": "Nincs bejelentkezve" } }
+      },
+      "post": {
+        "tags": ["Cart"],
+        "summary": "Termék hozzáadása a kosárhoz",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["product_id"], "properties": { "product_id": { "type": "integer" }, "quantity": { "type": "integer", "default": 1 } } } } }
+        },
+        "responses": { "200": { "description": "Termék hozzáadva" }, "401": { "description": "Nincs bejelentkezve" } }
+      },
+      "put": {
+        "tags": ["Cart"],
+        "summary": "Termék mennyiségének módosítása",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["product_id", "quantity"], "properties": { "product_id": { "type": "integer" }, "quantity": { "type": "integer" } } } } }
+        },
+        "responses": { "200": { "description": "Mennyiség frissítve" } }
+      }
+    },
+    "/cart/{product_id}": {
+      "delete": {
+        "tags": ["Cart"],
+        "summary": "Termék eltávolítása a kosárból",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "product_id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Termék eltávolítva" }, "401": { "description": "Nincs bejelentkezve" } }
+      }
+    },
+    "/orders": {
+      "post": {
+        "tags": ["Orders"],
+        "summary": "Rendelés leadása",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["shipping"],
+                "properties": {
+                  "shipping": {
+                    "type": "object",
+                    "properties": { "name": { "type": "string" }, "address": { "type": "string" }, "city": { "type": "string" }, "zip": { "type": "string" }, "country": { "type": "string" } }
+                  },
+                  "payment_method": { "type": "string", "example": "cash_on_delivery" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Rendelés sikeresen leadva" }, "400": { "description": "Hiányzó adatok vagy üres kosár" }, "401": { "description": "Nincs bejelentkezve" } }
+      },
+      "get": {
+        "tags": ["Orders"],
+        "summary": "Saját rendelések listája",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Rendelések listája", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Order" } } } } }, "401": { "description": "Nincs bejelentkezve" } }
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "tags": ["Orders"],
+        "summary": "Rendelés részletes adatai (tételekkel)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Rendelés tételek", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrderDetails" } } } }, "403": { "description": "Nem a saját rendelés" }, "404": { "description": "Rendelés nem található" } }
+      }
+    },
+    "/admin/orders": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Összes rendelés listázása (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Rendelések listája", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Order" } } } } }, "403": { "description": "Nincs admin jog" } }
+      }
+    },
+    "/admin/orders/{id}/status": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Rendelés státuszának módosítása (admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["status"], "properties": { "status": { "type": "string", "enum": ["pending", "processing", "shipped", "delivered", "cancelled"] } } } } }
+        },
+        "responses": { "200": { "description": "Státusz frissítve" }, "403": { "description": "Nincs admin jog" }, "404": { "description": "Rendelés nem található" } }
+      }
+    },
+    "/admin/orders/{id}/details": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Rendelés részletei admin számára (tételek, szállítás)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Teljes rendelés adatok", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrderDetails" } } } }, "403": { "description": "Nincs admin jog" }, "404": { "description": "Rendelés nem található" } }
+      }
+    }
+  }
+}
